@@ -223,7 +223,7 @@ export default function App() {
     window.addEventListener("offline", network);
     if (import.meta.env.PROD && "serviceWorker" in navigator)
       void navigator.serviceWorker
-        .register("/sw.js")
+        .register("./sw.js")
         .then((registration) => {
           if (registration.waiting) setUpdate(registration.waiting);
           registration.addEventListener("updatefound", () => {
@@ -497,7 +497,7 @@ export default function App() {
             <span className="empty-header-title">Okuma alanınız</span>
           </header>
           <div className="welcome">
-            <img className="welcome-icon" src="/icon.png" alt="Odak Okuyucu" />
+            <img className="welcome-icon" src="./icon.png" alt="Odak Okuyucu" />
             <h1>
               {fatal
                 ? "Kütüphanenizde bir sorun var"

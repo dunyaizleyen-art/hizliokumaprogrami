@@ -14,7 +14,7 @@ class ErrorBoundary extends Component<
   render() {
     return this.state.error ? (
       <div className="startup-error">
-        <img src="/icon.png" alt="" />
+        <img src="./icon.png" alt="" />
         <h1>Okuyucu açılamadı.</h1>
         <p>Kayıtlı kütüphaneniz silinmedi.</p>
         <button className="button primary" onClick={() => location.reload()}>

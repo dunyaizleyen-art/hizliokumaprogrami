@@ -245,7 +245,7 @@ export function Settings({
             </div>
           </section>
           <section className="about-app">
-            <img src="/icon.png" alt="" />
+            <img src="./icon.png" alt="" />
             <div>
               <strong>Odak Okuyucu</strong>
               <span>Rapid Reader (MIT) tabanlı, açık kaynak</span>
