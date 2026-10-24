@@ -3,13 +3,14 @@
   "name": "Odak Okuyucu",
   "short_name": "Odak",
   "description": "Türkçe akademik metinler için yerel RSVP hızlı okuma aracı.",
-  "start_url": "/",
+  "start_url": "./",
+  "scope": "./",
   "display": "standalone",
   "background_color": "#1c1c1e",
   "theme_color": "#1c1c1e",
   "icons": [
     {
-      "src": "/icon.png",
+      "src": "icon.png",
       "sizes": "1024x1024",
       "type": "image/png",
       "purpose": "any"

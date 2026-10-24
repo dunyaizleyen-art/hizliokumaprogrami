@@ -5,7 +5,19 @@ Türkçe akademik metinler (makale PDF'leri, kitap bölümleri, EPUB, Markdown, 
 - Belgeler bu tarayıcıdan **çıkmaz**: dosyalar tarayıcıda ayrıştırılır, kütüphane tarayıcının IndexedDB deposunda tutulur. Sunucu, hesap, analitik veya telemetri yoktur.
 - [Rapid Reader](https://github.com/Zer0codestuff/Rapid-Reader) web uygulamasının (MIT) Türkçeye uyarlanmış bir fork'udur. Ayrıntılar için `README_ANALIZ.md` ve `THIRD_PARTY.md` dosyalarına bakın.
 
-## Kurulum ve çalıştırma
+## Kullanmaya başlama (kurulum gerekmez)
+
+Tarayıcıda (Chrome veya Edge) şu adresi açın:
+
+**https://dunyaizleyen-art.github.io/hizliokumaprogrami/**
+
+- **Uygulama olarak yükleme:** Chrome'da adres çubuğunun sağındaki **Yükle** simgesine, Edge'de **⋯ → Uygulamalar → Bu siteyi uygulama olarak yükle**'ye tıklayın. Odak Okuyucu Başlat menüsüne ve görev çubuğuna kendi simgesiyle eklenir.
+- **İnternetsiz çalışma:** İlk açılıştan sonra uygulama internet bağlantısı olmadan da açılır.
+- **Gizlilik:** GitHub yalnızca programın kodunu sunar. Belgeleriniz, ilerlemeniz ve istatistikleriniz bu tarayıcıda kalır, hiçbir sunucuya gönderilmez.
+
+`main` dalına yapılan her değişiklik testlerden geçtikten sonra bu adreste otomatik olarak yayımlanır (`.github/workflows/pages.yml`). Uygulama yeni sürümü bulunca "Yeni sürüm hazır" bildirimi gösterir.
+
+## Geliştirme için yerel kurulum
 
 Node.js 20.19 veya üstü gerekir (Node 24 ile test edildi).
 
@@ -82,7 +94,7 @@ Bir metin alanına yazarken okuyucu kısayolları devre dışı kalır. Okuma al
 
 ## Gizlilik
 
-- Uygulama yalnızca kendi kaynağından (`127.0.0.1`) dosya yükler. Belge içeriği, ayarlar ve istatistikler hiçbir dış sunucuya gönderilmez.
+- Uygulama yalnızca kendi kaynağından (GitHub Pages adresi veya `127.0.0.1`) dosya yükler. Belge içeriği, ayarlar ve istatistikler hiçbir dış sunucuya gönderilmez.
 - Rapid Reader'daki URL'den makale içe aktarma özelliği ve ona ait sunucu kaldırılmıştır.
 - Verileriniz bu tarayıcı profiline aittir. Başka tarayıcıya taşımak için Ayarlar → Kütüphane → **Yedeği dışa aktar** kullanın. Tarayıcı verilerini temizlemeden önce yedek almanız önerilir.
 

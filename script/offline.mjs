@@ -1,17 +1,17 @@
 import { readdir, writeFile } from "node:fs/promises";
 import { createHash } from "node:crypto";
 const assets = (await readdir(new URL("../dist/assets/", import.meta.url))).map(
-  (f) => `/assets/${f}`,
+  (f) => `./assets/${f}`,
 );
 const hash = createHash("sha256")
   .update(assets.join("\n"))
   .digest("hex")
   .slice(0, 12);
 const files = [
-  "/",
-  "/index.html",
-  "/icon.png",
-  "/manifest.webmanifest",
+  "./",
+  "./index.html",
+  "./icon.png",
+  "./manifest.webmanifest",
   ...assets,
 ];
 const source = `const CACHE = 'odak-okuyucu-${hash}';
@@ -21,9 +21,9 @@ self.addEventListener('activate', event => event.waitUntil(caches.keys().then(ke
 self.addEventListener('message', event => { if (event.data === 'ACTIVATE_UPDATE') self.skipWaiting(); });
 self.addEventListener('fetch', event => {
   const url = new URL(event.request.url);
-  if (event.request.method !== 'GET' || url.origin !== self.location.origin || url.pathname.startsWith('/api/')) return;
+  if (event.request.method !== 'GET' || url.origin !== self.location.origin) return;
   if (event.request.mode === 'navigate') {
-    event.respondWith(fetch(event.request).then(response => { if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put('/index.html', copy)); } return response; }).catch(() => caches.match('/index.html', { ignoreVary: true })));
+    event.respondWith(fetch(event.request).then(response => { if (response.ok) { const copy = response.clone(); caches.open(CACHE).then(cache => cache.put('./index.html', copy)); } return response; }).catch(() => caches.match('./index.html', { ignoreVary: true })));
   } else event.respondWith(caches.match(event.request, { ignoreVary: true }).then(cached => cached || fetch(event.request)));
 });
 `;

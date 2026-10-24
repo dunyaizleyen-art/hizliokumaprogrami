@@ -189,7 +189,7 @@ export function Sidebar({
           onClick={onHide}
           title="Kütüphaneyi gizle"
         >
-          <img src="/icon.png" alt="" />
+          <img src="./icon.png" alt="" />
           <span>Odak Okuyucu</span>
         </button>
         <IconButton
