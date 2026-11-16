@@ -28,6 +28,7 @@ export function Settings({
   onConnectFolder,
   onDisconnectFolder,
   onSaveFolder,
+  initialTab = "reading",
 }: {
   value: SettingsValue;
   onChange: (s: SettingsValue) => void;
@@ -38,9 +39,10 @@ export function Settings({
   onConnectFolder: (choose: boolean) => void;
   onDisconnectFolder: () => void;
   onSaveFolder: () => void;
+  initialTab?: "reading" | "library" | "shortcuts";
 }) {
   const [tab, setTab] = useState<"reading" | "library" | "shortcuts">(
-    "reading",
+    initialTab,
   );
   const [usage, setUsage] = useState<StorageEstimate>();
   const [persistent, setPersistent] = useState(false);

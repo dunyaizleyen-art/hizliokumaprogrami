@@ -71,6 +71,9 @@ export default function App() {
   const openRequest = useRef(0);
   const dragDepth = useRef(0);
   const [folder, setFolder] = useState<FolderStatus>();
+  const [settingsTab, setSettingsTab] = useState<"reading" | "library">(
+    "reading",
+  );
   const [epoch, setEpoch] = useState(0);
   const folderRef = useRef<folderSync.FolderHandle>(undefined);
   const lockedFolder = useRef<folderSync.FolderHandle>(undefined);
@@ -595,6 +598,48 @@ export default function App() {
         }}
         onSettings={() => {
           window.dispatchEvent(new Event("odak:pause"));
+          setSettingsTab("reading");
+          setDialog("settings");
+        }}
+        storage={
+          folder?.error
+            ? {
+                label: "Klasöre yazılamadı",
+                title: folder.error,
+                tone: "warn",
+              }
+            : folder?.state === "connected"
+              ? {
+                  label: folder.name
+                    ? `Klasöre kaydediliyor: ${folder.name}`
+                    : "Klasöre kaydediliyor",
+                  title:
+                    "Kütüphane ve okuma konumu bu klasöre de otomatik kaydediliyor. Ayarlar için tıklayın.",
+                  tone: "ok",
+                }
+              : folder
+                ? {
+                    label: "Kayıt klasörü için izin gerekiyor",
+                    title: `"${folder.name}" klasörüne bu oturumda izin verilmedi. Bağlanmak için tıklayın.`,
+                    tone: "warn",
+                  }
+                : folderSync.folderSupported()
+                  ? {
+                      label: "Yalnızca bu tarayıcıda. Klasör bağlayın",
+                      title:
+                        "Tarayıcı verileri silinirse kütüphane ve okuma konumu kaybolur. Kalıcı kayıt klasörü bağlamak için tıklayın.",
+                      tone: "warn",
+                    }
+                  : {
+                      label: "Bu cihazda kayıtlı",
+                      title:
+                        "Bu tarayıcı klasöre kaydetmeyi desteklemiyor. Yedek almak için tıklayın.",
+                      tone: "plain",
+                    }
+        }
+        onStorage={() => {
+          window.dispatchEvent(new Event("odak:pause"));
+          setSettingsTab("library");
           setDialog("settings");
         }}
         onFavorite={(id) => void favorite(id)}
@@ -811,6 +856,7 @@ export default function App() {
           folder={folder}
           onConnectFolder={(choose) => void connectFolder(choose)}
           onDisconnectFolder={() => void disconnectFolder()}
+          initialTab={settingsTab}
           onSaveFolder={() => {
             syncFull.current = true;
             void flushSync();

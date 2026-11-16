@@ -62,6 +62,8 @@ export function Sidebar({
   onImport,
   onStats,
   onSettings,
+  storage,
+  onStorage,
   onFavorite,
   onDelete,
   onHide,
@@ -73,6 +75,9 @@ export function Sidebar({
   onImport: () => void;
   onStats: () => void;
   onSettings: () => void;
+  /** Kütüphanenin nerede saklandığını özetleyen durum yazısı */
+  storage: { label: string; title: string; tone: "ok" | "warn" | "plain" };
+  onStorage: () => void;
   onFavorite: (id: string) => void;
   onDelete: (id: string) => void;
   onHide: () => void;
@@ -278,7 +283,14 @@ export function Sidebar({
         <IconButton label="Okuma istatistikleri" onClick={onStats}>
           <BarChart3 size={20} />
         </IconButton>
-        <span>Bu cihazda kayıtlı</span>
+        <button
+          type="button"
+          className={`storage-status ${storage.tone}`}
+          title={storage.title}
+          onClick={onStorage}
+        >
+          {storage.label}
+        </button>
         <IconButton label="Ayarlar" onClick={onSettings}>
           <Settings size={19} />
         </IconButton>

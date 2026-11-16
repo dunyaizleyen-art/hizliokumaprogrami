@@ -2358,3 +2358,29 @@ kbd {
 .library-settings .backup-buttons {
   margin-top: 10px;
 }
+
+.storage-status {
+  flex: 1;
+  min-width: 0;
+  font-size: 10px;
+  line-height: 1.35;
+  text-align: center;
+  color: var(--faint);
+  padding: 5px 6px;
+  border-radius: 8px;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow-wrap: anywhere;
+}
+.storage-status:hover {
+  background: var(--hover);
+  color: var(--ink);
+}
+.storage-status.ok {
+  color: var(--muted);
+}
+.storage-status.warn {
+  color: var(--amber);
+}
