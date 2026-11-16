@@ -9,6 +9,7 @@ import {
   Check,
   BookOpen,
   WifiOff,
+  FolderSync,
 } from "lucide-react";
 import { Sidebar } from "./components/Sidebar";
 import { Reader } from "./components/Reader";
@@ -17,6 +18,7 @@ import { Statistics } from "./components/Statistics";
 import { Settings } from "./components/Settings";
 import { IconButton, Modal } from "./components/primitives";
 import * as storage from "./core/storage";
+import * as folderSync from "./core/folder";
 import {
   defaultSettings,
   metadata,
@@ -29,6 +31,14 @@ import {
   type ReadingTotals,
 } from "./core/types";
 import { importFile, importText } from "./import";
+
+export interface FolderStatus {
+  name: string;
+  /** locked: klasör hatırlanıyor ama bu oturumda izin verilmesi gerekiyor */
+  state: "connected" | "locked";
+  savedAt?: number;
+  error?: string;
+}
 
 export default function App() {
   const [books, setBooks] = useState<BookMetadata[]>([]);
@@ -60,7 +70,54 @@ export default function App() {
   const fileInput = useRef<HTMLInputElement>(null);
   const openRequest = useRef(0);
   const dragDepth = useRef(0);
+  const [folder, setFolder] = useState<FolderStatus>();
+  const [epoch, setEpoch] = useState(0);
+  const folderRef = useRef<folderSync.FolderHandle>(undefined);
+  const lockedFolder = useRef<folderSync.FolderHandle>(undefined);
+  const syncTimer = useRef<ReturnType<typeof setTimeout>>(undefined);
+  const syncFull = useRef(false);
+  const syncing = useRef<Promise<unknown>>(Promise.resolve());
   settingsRef.current = settings;
+  // Kayıt klasörüne yazma: belge kümesi değişince tam, aksi halde yalnızca ilerleme.
+  const flushSync = useCallback(() => {
+    clearTimeout(syncTimer.current);
+    syncTimer.current = undefined;
+    const handle = folderRef.current;
+    if (!handle) return syncing.current;
+    const full = syncFull.current;
+    syncFull.current = false;
+    syncing.current = syncing.current
+      .catch(() => {})
+      .then(() => saveQueue.current)
+      .catch(() => {})
+      .then(() => folderSync.push(handle, full))
+      .then(
+        () =>
+          setFolder(
+            (f) => f && { ...f, savedAt: Date.now(), error: undefined },
+          ),
+        (e) => {
+          if (full) syncFull.current = true;
+          setFolder(
+            (f) =>
+              f && {
+                ...f,
+                error: e instanceof Error ? e.message : "Klasöre yazılamadı.",
+              },
+          );
+        },
+      );
+    return syncing.current;
+  }, []);
+  const scheduleSync = useCallback(
+    (full = false) => {
+      if (full) syncFull.current = true;
+      if (!folderRef.current) return;
+      clearTimeout(syncTimer.current);
+      syncTimer.current = setTimeout(flushSync, full ? 300 : 2500);
+    },
+    [flushSync],
+  );
   const notify = useCallback((message: string, error = false) => {
     clearTimeout(toastTimer.current);
     setToast({ message, error });
@@ -80,9 +137,13 @@ export default function App() {
     (value: SettingsValue) => {
       settingsRef.current = value;
       setSettings(value);
-      void storage.saveSettings(value).catch(reportError);
+      saveQueue.current = saveQueue.current
+        .catch(() => {})
+        .then(() => storage.saveSettings(value))
+        .catch(reportError);
+      scheduleSync();
     },
-    [reportError],
+    [reportError, scheduleSync],
   );
   const updateMetadata = useCallback(
     (value: Book) =>
@@ -107,8 +168,9 @@ export default function App() {
         .catch(() => {})
         .then(() => storage.saveBook(value))
         .catch(reportError);
+      scheduleSync();
     },
-    [updateMetadata, reportError],
+    [updateMetadata, reportError, scheduleSync],
   );
   const progress = useCallback(
     (id: string, p: Progress, preferences: Preferences) => {
@@ -170,50 +232,119 @@ export default function App() {
     },
     [persistBook, updateSettings, reportError],
   );
-  useEffect(() => {
-    let alive = true;
-    void Promise.all([
+  // Tarayıcı deposundaki her şeyi ekrana yükler (açılışta ve klasörden alımdan sonra).
+  const loadAll = useCallback(async () => {
+    const [library, prefs, stats] = await Promise.all([
       storage.loadLibrary(),
       storage.loadSettings(),
       storage.loadStats().catch(() => []),
-    ])
-      .then(async ([library, prefs, stats]) => {
-        if (!alive) return;
-        setLifetime(
-          stats.reduce(
-            (sum, d) => ({
-              words: sum.words + d.words,
-              seconds: sum.seconds + d.seconds,
-            }),
-            { words: 0, seconds: 0 },
-          ),
-        );
-        setBooks(library);
-        setSettings(prefs);
-        settingsRef.current = prefs;
-        const id = library.some((b) => b.id === prefs.selectedID)
-          ? prefs.selectedID
-          : library[0]?.id;
-        if (id) {
-          const value = await storage.loadBook(id);
-          if (alive) {
-            bookRef.current = value;
-            setBook(value);
+    ]);
+    setLifetime(
+      stats.reduce(
+        (sum, d) => ({
+          words: sum.words + d.words,
+          seconds: sum.seconds + d.seconds,
+        }),
+        { words: 0, seconds: 0 },
+      ),
+    );
+    setBooks(library);
+    setSettings(prefs);
+    settingsRef.current = prefs;
+    const wanted = bookRef.current?.id ?? prefs.selectedID;
+    const id = library.some((b) => b.id === wanted) ? wanted : library[0]?.id;
+    const value = id ? await storage.loadBook(id) : undefined;
+    bookRef.current = value;
+    setBook(value);
+    setEpoch((n) => n + 1);
+  }, []);
+  useEffect(() => {
+    let alive = true;
+    void (async () => {
+      try {
+        const handle = folderSync.folderSupported()
+          ? await folderSync.savedFolder()
+          : undefined;
+        if (handle) {
+          if ((await folderSync.permission(handle)) === "granted") {
+            const result = await folderSync.pull(handle);
+            folderRef.current = handle;
+            if (alive) setFolder({ name: handle.name, state: "connected" });
+            // Klasörde kütüphane dosyası yoksa ilk yazım tam olur.
+            syncFull.current = !result.hasLibrary;
+          } else {
+            lockedFolder.current = handle;
+            if (alive) setFolder({ name: handle.name, state: "locked" });
           }
         }
-        if (alive) setReady(true);
-      })
-      .catch((e) => {
-        if (alive) {
-          setFatal(e.message);
-          setReady(true);
-        }
-      });
+      } catch (e) {
+        if (alive)
+          notify(
+            `Kayıt klasörü okunamadı: ${e instanceof Error ? e.message : e}`,
+            true,
+          );
+      }
+      try {
+        await loadAll();
+        if (folderRef.current) scheduleSync();
+      } catch (e) {
+        if (alive) setFatal((e as Error).message);
+      }
+      if (alive) setReady(true);
+    })();
+    const flush = () => {
+      if (document.visibilityState === "hidden" && syncTimer.current)
+        void flushSync();
+    };
+    document.addEventListener("visibilitychange", flush);
+    window.addEventListener("pagehide", flush);
     return () => {
       alive = false;
       clearTimeout(toastTimer.current);
+      document.removeEventListener("visibilitychange", flush);
+      window.removeEventListener("pagehide", flush);
     };
   }, []);
+  const connectFolder = useCallback(
+    async (choose: boolean) => {
+      try {
+        const handle =
+          !choose && lockedFolder.current
+            ? lockedFolder.current
+            : await folderSync.pickFolder();
+        if ((await folderSync.permission(handle, true)) !== "granted") {
+          notify("Klasöre yazma izni verilmedi.", true);
+          return;
+        }
+        window.dispatchEvent(new Event("odak:pause"));
+        await saveQueue.current;
+        await folderSync.rememberFolder(handle);
+        const result = await folderSync.pull(handle);
+        folderRef.current = handle;
+        lockedFolder.current = undefined;
+        setFolder({ name: handle.name, state: "connected" });
+        await loadAll();
+        syncFull.current = true;
+        await flushSync();
+        notify(
+          result.added || result.updated
+            ? `Kayıt klasörü bağlandı: ${result.added} belge geri yüklendi, ${result.updated} okuma konumu güncellendi.`
+            : `Kayıt klasörü bağlandı: "${handle.name}". Kütüphane ve ilerleme artık buraya da kaydediliyor.`,
+        );
+      } catch (e) {
+        if ((e as Error).name !== "AbortError") reportError(e);
+      }
+    },
+    [loadAll, flushSync, notify, reportError],
+  );
+  const disconnectFolder = useCallback(async () => {
+    await flushSync();
+    folderRef.current = undefined;
+    lockedFolder.current = undefined;
+    setFolder(undefined);
+    await folderSync.rememberFolder(undefined).catch(() => {});
+    notify("Kayıt klasörü bağlantısı kesildi. Klasördeki dosyalar silinmedi.");
+  }, [flushSync, notify]);
   useEffect(() => {
     document.documentElement.dataset.theme = settings.theme;
   }, [settings.theme]);
@@ -267,6 +398,7 @@ export default function App() {
     const result = await storage.importDocument(doc, settingsRef.current);
     await reloadBooks();
     await openBook(result.book.id);
+    if (!result.duplicate) scheduleSync(true);
     return result.duplicate;
   };
   const files = async (values: File[]) => {
@@ -350,6 +482,7 @@ export default function App() {
         if (library[0]) await openBook(library[0].id);
       }
       setDeleting(undefined);
+      scheduleSync(true);
       notify("Belge silindi.");
     } catch (e) {
       reportError(e);
@@ -367,6 +500,7 @@ export default function App() {
         const library = await storage.loadLibrary();
         if (library[0]) await openBook(library[0].id);
       }
+      scheduleSync(true);
       notify(`${n} belge geri yüklendi. Mevcut ilerleme korundu.`);
     } catch (e) {
       reportError(e);
@@ -473,6 +607,7 @@ export default function App() {
       />
       {book && !fatal ? (
         <Reader
+          key={`${book.id}:${epoch}`}
           book={book}
           mode={settings.mode}
           onMode={(mode) => updateSettings({ ...settingsRef.current, mode })}
@@ -534,6 +669,16 @@ export default function App() {
                 <span className="welcome-formats">
                   PDF, EPUB, Markdown, metin, Word, RTF ve HTML
                 </span>
+                {folderSync.folderSupported() && !folder && (
+                  <button
+                    type="button"
+                    className="button welcome-restore"
+                    onClick={() => void connectFolder(true)}
+                  >
+                    <FolderSync size={16} />
+                    Kayıt klasöründen geri yükle
+                  </button>
+                )}
               </>
             )}
             {fatal && (
@@ -554,6 +699,34 @@ export default function App() {
             </span>
           </footer>
         </main>
+      )}
+      {folder?.state === "locked" && (
+        <div className="update-banner folder-banner" role="status">
+          <FolderSync size={15} />
+          <span>
+            Kayıt klasörü "{folder.name}" için bu oturumda izin gerekiyor.
+          </span>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => void connectFolder(false)}
+          >
+            Bağlan
+          </button>
+        </div>
+      )}
+      {folder?.error && (
+        <div className="update-banner folder-banner" role="alert">
+          <AlertCircle size={15} />
+          <span>Kayıt klasörüne yazılamadı: {folder.error}</span>
+          <button
+            type="button"
+            className="text-button"
+            onClick={() => void connectFolder(true)}
+          >
+            Klasörü yeniden seç
+          </button>
+        </div>
       )}
       {!online && (
         <div className="network-status" role="status">
@@ -635,6 +808,13 @@ export default function App() {
           onClose={() => setDialog(undefined)}
           onRestore={restore}
           onError={reportError}
+          folder={folder}
+          onConnectFolder={(choose) => void connectFolder(choose)}
+          onDisconnectFolder={() => void disconnectFolder()}
+          onSaveFolder={() => {
+            syncFull.current = true;
+            void flushSync();
+          }}
         />
       )}
       {deleting && (

@@ -2339,3 +2339,22 @@ kbd {
     scroll-behavior: auto !important;
   }
 }
+
+/* Kayıt klasörü */
+.folder-banner {
+  top: 132px;
+  max-width: min(92vw, 640px);
+}
+.folder-banner > svg {
+  color: var(--amber);
+  flex-shrink: 0;
+}
+.welcome-restore {
+  margin-top: 18px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+.library-settings .backup-buttons {
+  margin-top: 10px;
+}
