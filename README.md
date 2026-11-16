@@ -54,6 +54,22 @@ Diğer komutlar:
 3. **Duraklat:** `Space`. Duraklatınca tam metin **bağlam görünümü** açılır ve kaldığınız grup vurgulanır. Bir kelimeye tıklayıp `Space` ile oradan devam edebilirsiniz. Bu görünümü `C` ile kapatıp açabilirsiniz.
 4. **İlerleme:** Her belgenin konumu otomatik kaydedilir; sayfa yenilense de tarayıcı kapansa da kaldığınız yerden devam eder. Alt çubukta bölüm ve belge için **kalan süre** ve **gerçek hız** (oturum, belge, genel) görünür.
 
+### Kaldığınız yerin kaybolmaması: kalıcı kayıt klasörü
+
+Kütüphane ve okuma konumu tarayıcının site verilerinde durur. Şu durumlarda tarayıcı bu verileri siler ve kütüphane boş açılır:
+
+- Chrome'da **"Tüm pencereleri kapattığınızda sitelerin cihazınıza kaydettiği verileri silin"** ayarı açıksa (Ayarlar → Gizlilik ve güvenlik → Site ayarları → Cihaz üzerindeki site verileri),
+- tarama verilerini elle temizlerseniz,
+- uygulamayı başka bir tarayıcıda veya başka bir Chrome profilinde açarsanız (her profilin deposu ayrıdır).
+
+Bunu önlemek için **Ayarlar → Kütüphane → Kalıcı kayıt klasörü → Klasör seç** ile bir klasör bağlayın (masaüstü Chrome veya Edge gerekir):
+
+- Uygulama bu klasöre iki dosya yazar: `odak-kutuphane.json` (belgeler; belge eklenince veya silinince) ve `odak-ilerleme.json` (konum, notlar, ayarlar, istatistik; okurken birkaç saniyede bir).
+- Açılışta klasör okunur: eksik belgeler eklenir, daha yeni okuma konumları uygulanır. Daha güncel olan konum hiçbir zaman eskisiyle ezilmez.
+- Tarayıcı verileri silinmişse boş açılış ekranındaki **Kayıt klasöründen geri yükle** düğmesiyle aynı klasörü seçmeniz yeterlidir.
+- Chrome izin sorduğunda **"Her ziyarette izin ver"** seçerseniz klasör her açılışta kendiliğinden bağlanır; aksi halde açılışta çıkan **Bağlan** düğmesine bir kez basarsınız.
+- Klasör olarak Google Drive veya OneDrive eşitleme klasörünü seçerseniz başka bilgisayarda da kaldığınız yerden devam edersiniz. Uygulamanın kendisi internete veri göndermez.
+
 ### Okuma seçenekleri (alt çubuktaki ayar simgesi)
 
 | Seçenek | Açıklama |
@@ -107,6 +123,7 @@ src/core/chunker.ts    1/2/3 kelime ve öbek modu, cümle başı/sonu bulma
 src/core/timing.ts     Kademeli hızlanma, ayarlanabilir ek süreler, kalan süre birimleri
 src/core/session.ts    Kaymasız (deadline tabanlı) oynatma oturumu, cümle gezinme, oturum WPM
 src/core/storage.ts    IndexedDB kütüphane, ilerleme, istatistik, yedek
+src/core/folder.ts     Kalıcı kayıt klasörü: kütüphane ve ilerlemeyi seçilen klasöre yazma, oradan geri yükleme
 src/import/pdf*.ts     PDF metin çıkarma ve temizlik (üstbilgi, altbilgi, sayfa no, dipnot, paragraf akışı)
 src/import/markdown.ts Markdown işaretlerini ayıklama
 src/components/        React arayüzü (Reader, Options, Settings, Sidebar, Statistics, ImportDialog)

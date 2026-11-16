@@ -372,3 +372,130 @@ export async function restoreLibrary(value: unknown): Promise<number> {
   await tx.done;
   return additions.length;
 }
+
+/** Kayıt klasörüne sık yazılan küçük dosya: belge içeriği olmadan konum ve ayarlar. */
+export interface ProgressSnapshot {
+  version: 1;
+  app: "Odak Okuyucu";
+  savedAt: string;
+  books: Record<
+    string,
+    Pick<
+      BookMetadata,
+      | "title"
+      | "progress"
+      | "preferences"
+      | "lastReadAt"
+      | "isFavorite"
+      | "notes"
+      | "stats"
+    >
+  >;
+  statistics: DailyStats[];
+  selected?: string;
+}
+export async function exportProgress(): Promise<ProgressSnapshot> {
+  const db = await database();
+  const [books, settings, statistics] = await Promise.all([
+    db.getAll("books"),
+    db.get("settings", "main"),
+    db.getAll("statistics"),
+  ]);
+  const snapshot: ProgressSnapshot = {
+    version: 1,
+    app: "Odak Okuyucu",
+    savedAt: new Date().toISOString(),
+    books: {},
+    statistics,
+    selected: books.find((b) => b.id === settings?.selectedID)?.fingerprint,
+  };
+  for (const b of books)
+    snapshot.books[b.fingerprint] = {
+      title: b.title,
+      progress: b.progress,
+      preferences: b.preferences,
+      lastReadAt: b.lastReadAt,
+      isFavorite: b.isFavorite,
+      notes: b.notes ?? [],
+      stats: b.stats,
+    };
+  return snapshot;
+}
+/**
+ * Klasördeki ilerleme dosyasını uygular. Bir belgenin konumu yalnızca dosyadaki
+ * kayıt buradakinden daha yeniyse değişir; böylece hiçbir cihazdaki daha güncel
+ * okuma ezilmez. Güncellenen belge sayısını döndürür.
+ */
+export async function applyProgress(value: unknown): Promise<number> {
+  const data = value as Partial<ProgressSnapshot> | null;
+  if (
+    !data ||
+    typeof data !== "object" ||
+    data.app !== "Odak Okuyucu" ||
+    data.version !== 1 ||
+    !data.books ||
+    typeof data.books !== "object"
+  )
+    return 0;
+  const db = await database();
+  const tx = db.transaction(["books", "statistics", "settings"], "readwrite");
+  let updated = 0;
+  let selectedID: string | undefined;
+  for (const book of await tx.objectStore("books").getAll()) {
+    if (data.selected && book.fingerprint === data.selected)
+      selectedID = book.id;
+    const saved = data.books[book.fingerprint];
+    if (!saved || !saved.progress) continue;
+    const savedAt = Number(saved.lastReadAt) || 0;
+    if (savedAt <= (book.lastReadAt ?? 0)) continue;
+    const sectionIndex = clamp(
+      Number(saved.progress.sectionIndex) || 0,
+      0,
+      Math.max(0, book.sections.length - 1),
+    );
+    await tx.objectStore("books").put({
+      ...book,
+      progress: {
+        sectionIndex,
+        wordIndex: clamp(
+          Number(saved.progress.wordIndex) || 0,
+          0,
+          book.sections[sectionIndex]?.wordCount ?? 0,
+        ),
+      },
+      preferences: clampPreferences(saved.preferences ?? book.preferences),
+      lastReadAt: savedAt,
+      isFavorite: saved.isFavorite === true,
+      notes: Array.isArray(saved.notes)
+        ? saved.notes.filter((n) => typeof n?.text === "string")
+        : (book.notes ?? []),
+      stats:
+        Number.isFinite(saved.stats?.words) &&
+        Number.isFinite(saved.stats?.seconds)
+          ? saved.stats
+          : book.stats,
+    });
+    updated++;
+  }
+  if (Array.isArray(data.statistics))
+    for (const s of data.statistics) {
+      if (
+        !s ||
+        !/^\d{4}-\d{2}-\d{2}$/.test(s.date) ||
+        !(s.words >= 0) ||
+        !(s.seconds >= 0)
+      )
+        continue;
+      const old = await tx.objectStore("statistics").get(s.date);
+      await tx.objectStore("statistics").put({
+        date: s.date,
+        words: Math.max(old?.words ?? 0, s.words),
+        seconds: Math.max(old?.seconds ?? 0, s.seconds),
+      });
+    }
+  const settings = await tx.objectStore("settings").get("main");
+  if (selectedID && settings && !settings.selectedID)
+    await tx.objectStore("settings").put({ ...settings, selectedID }, "main");
+  await tx.done;
+  return updated;
+}

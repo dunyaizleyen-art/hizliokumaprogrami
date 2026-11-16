@@ -5,7 +5,10 @@ import {
   ShieldCheck,
   Keyboard,
   ExternalLink,
+  FolderSync,
 } from "lucide-react";
+import { folderSupported } from "../core/folder";
+import type { FolderStatus } from "../App";
 import {
   clampPreferences,
   localDate,
@@ -21,12 +24,20 @@ export function Settings({
   onClose,
   onRestore,
   onError,
+  folder,
+  onConnectFolder,
+  onDisconnectFolder,
+  onSaveFolder,
 }: {
   value: SettingsValue;
   onChange: (s: SettingsValue) => void;
   onClose: () => void;
   onRestore: (file: File) => Promise<void>;
   onError: (error: unknown) => void;
+  folder?: FolderStatus;
+  onConnectFolder: (choose: boolean) => void;
+  onDisconnectFolder: () => void;
+  onSaveFolder: () => void;
 }) {
   const [tab, setTab] = useState<"reading" | "library" | "shortcuts">(
     "reading",
@@ -148,6 +159,87 @@ export function Settings({
           role="tabpanel"
           aria-label="Kütüphane"
         >
+          <section>
+            <h3>Kalıcı kayıt klasörü</h3>
+            <p>
+              Kütüphanenizi ve okuma konumunuzu seçtiğiniz bir klasöre de
+              otomatik kaydeder. Tarayıcı verileri silinse bile (örneğin
+              Chrome'un "kapatınca site verilerini sil" ayarı) klasörü yeniden
+              seçmeniz her şeyi geri getirir. Google Drive veya OneDrive klasörü
+              seçerseniz başka bilgisayarda da kaldığınız yerden devam
+              edersiniz. Uygulama internete veri göndermez; yalnızca bu klasöre
+              iki dosya yazar.
+            </p>
+            {!folderSupported() ? (
+              <p className="fine-print">
+                Bu tarayıcı klasöre kaydetmeyi desteklemiyor (masaüstü Chrome
+                veya Edge gerekir). Aşağıdaki yedek dosyasını kullanın.
+              </p>
+            ) : (
+              <>
+                <div className="storage-protection">
+                  <FolderSync size={19} />
+                  <span>
+                    {!folder
+                      ? "Klasör bağlı değil"
+                      : folder.state === "locked"
+                        ? `"${folder.name}" için izin bekleniyor`
+                        : `Bağlı: "${folder.name}"${
+                            folder.savedAt
+                              ? ` · son kayıt ${new Date(folder.savedAt).toLocaleTimeString("tr")}`
+                              : ""
+                          }`}
+                  </span>
+                  {folder?.state === "locked" ? (
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => onConnectFolder(false)}
+                    >
+                      Bağlan
+                    </button>
+                  ) : (
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={() => onConnectFolder(true)}
+                    >
+                      {folder ? "Klasörü değiştir" : "Klasör seç"}
+                    </button>
+                  )}
+                </div>
+                {folder && (
+                  <div className="backup-buttons">
+                    {folder.state === "connected" && (
+                      <button
+                        type="button"
+                        className="button"
+                        onClick={onSaveFolder}
+                      >
+                        Şimdi kaydet
+                      </button>
+                    )}
+                    <button
+                      type="button"
+                      className="button"
+                      onClick={onDisconnectFolder}
+                    >
+                      Bağlantıyı kes
+                    </button>
+                  </div>
+                )}
+                {folder?.error && (
+                  <p className="inline-error" role="alert">
+                    {folder.error}
+                  </p>
+                )}
+                <p className="fine-print">
+                  Chrome izin sorduğunda "Her ziyarette izin ver" seçeneğini
+                  işaretlerseniz klasör her açılışta kendiliğinden bağlanır.
+                </p>
+              </>
+            )}
+          </section>
           <section>
             <h3>Bu cihazda saklanır</h3>
             <p>
