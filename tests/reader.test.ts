@@ -10,7 +10,12 @@ import {
   splitSections,
   tokenIndexAtOffset,
 } from "../src/core/text";
-import { defaultPreferences, type Book } from "../src/core/types";
+import {
+  completedWords,
+  defaultPreferences,
+  locate,
+  type Book,
+} from "../src/core/types";
 
 const noPauses = {
   sentencePause: 0,
@@ -158,5 +163,17 @@ describe("playback timing", () => {
     session.play();
     expect(session.getSnapshot().wordIndex).toBe(4);
     session.dispose();
+  });
+});
+describe("document-wide position", () => {
+  it("maps a document word index to its section and back", () => {
+    const b = book(); // 6 + 3 kelime
+    expect(locate(b, 0)).toEqual({ sectionIndex: 0, wordIndex: 0 });
+    expect(locate(b, 5)).toEqual({ sectionIndex: 0, wordIndex: 5 });
+    expect(locate(b, 6)).toEqual({ sectionIndex: 1, wordIndex: 0 });
+    expect(locate(b, 8)).toEqual({ sectionIndex: 1, wordIndex: 2 });
+    expect(locate(b, 999)).toEqual({ sectionIndex: 1, wordIndex: 2 });
+    for (let i = 0; i < 9; i++)
+      expect(completedWords({ ...b, progress: locate(b, i) })).toBe(i);
   });
 });

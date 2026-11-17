@@ -38,6 +38,7 @@ import {
 import {
   completedWords,
   formatTime,
+  locate,
   MAX_WPM,
   MIN_WPM,
   totalWords,
@@ -239,6 +240,11 @@ export function Reader({
   const complete = completedWords({ ...book, progress: state });
   const percentage = count ? Math.round((complete / count) * 100) : 0;
   const remaining = session.remaining();
+  // Alt çubuk belgenin tamamına göre çalışır: konum, önceki bölümlerin kelimeleri dahil sayılır.
+  const position = Math.min(
+    complete - state.wordIndex + session.displayIndex,
+    Math.max(0, count - 1),
+  );
   const words = session.displayWords;
   const displayEnd = session.displayEnd;
   const word = words.join(" ");
@@ -551,26 +557,26 @@ export function Reader({
           <span className="control-divider progress-divider" />
           <div className="seek-control">
             <input
-              aria-label="Bölüm ilerlemesi"
+              aria-label="Belge ilerlemesi"
+              title="Belgenin tamamındaki konum. Sürükleyerek herhangi bir yere gidin."
               type="range"
               min="0"
-              max={Math.max(0, tokens.length - 1)}
-              value={session.displayIndex}
-              disabled={tokens.length < 2}
+              max={Math.max(0, count - 1)}
+              value={position}
+              disabled={count < 2}
               style={
                 {
-                  "--range-progress": `${tokens.length > 1 ? (session.displayIndex / (tokens.length - 1)) * 100 : 0}%`,
+                  "--range-progress": `${count > 1 ? (position / (count - 1)) * 100 : 0}%`,
                 } as CSSProperties
               }
-              onChange={(e) =>
-                session.seek(state.sectionIndex, Number(e.target.value))
-              }
+              onChange={(e) => {
+                const target = locate(book, Number(e.target.value));
+                session.seek(target.sectionIndex, target.wordIndex);
+              }}
             />
             <span>
-              {Math.min(state.wordIndex + 1, tokens.length).toLocaleString(
-                "tr",
-              )}{" "}
-              / {tokens.length.toLocaleString("tr")}
+              {Math.min(position + 1, count).toLocaleString("tr")} /{" "}
+              {count.toLocaleString("tr")}
             </span>
           </div>
           <IconButton
@@ -595,7 +601,12 @@ export function Reader({
           className="remaining-time"
           title="Kalan süre, seçili hız ile noktalama, paragraf ve uzun kelime ek sürelerini hesaba katar. WPM değerleri yalnızca aktif oynatma süresinden (duraklamalar hariç) hesaplanır."
         >
-          <span>Bölümde {formatTime(remaining.section)}</span>
+          {book.sections.length > 1 ? (
+            <span>
+              Bölüm {state.sectionIndex + 1} / {book.sections.length} ·{" "}
+              {formatTime(remaining.section)}
+            </span>
+          ) : null}
           <span>Belgede {formatTime(remaining.document)}</span>
           <span className="wpm-stats">
             Gerçek hız: oturum {sessionWpm || "–"} · belge {bookWpm || "–"} ·
