@@ -178,6 +178,25 @@ export function completedWords(
     clamp(book.progress.wordIndex, 0, book.sections[section]?.wordCount ?? 0)
   );
 }
+/** Belge genelindeki kelime sırasını (0 tabanlı) bölüm ve bölüm içi konuma çevirir. */
+export function locate(
+  book: Pick<BookMetadata, "sections">,
+  index: number,
+): Progress {
+  let rest = Math.max(0, Math.floor(index));
+  let last = 0;
+  for (let i = 0; i < book.sections.length; i++) {
+    const words = book.sections[i].wordCount;
+    if (!words) continue;
+    if (rest < words) return { sectionIndex: i, wordIndex: rest };
+    rest -= words;
+    last = i;
+  }
+  return {
+    sectionIndex: last,
+    wordIndex: Math.max(0, (book.sections[last]?.wordCount ?? 1) - 1),
+  };
+}
 export function fraction(book: Pick<BookMetadata, "sections" | "progress">) {
   return totalWords(book) ? completedWords(book) / totalWords(book) : 0;
 }

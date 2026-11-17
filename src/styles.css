@@ -2384,3 +2384,8 @@ kbd {
 .storage-status.warn {
   color: var(--amber);
 }
+
+/* Alt çubuk belge geneline göre çalışır: daha geniş kaydırma çubuğu */
+.seek-control {
+  width: 190px;
+}
